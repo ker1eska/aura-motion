@@ -3,298 +3,312 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>AURA // Motion FX Studio</title>
+  <title>AURA // Motion Pro</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app-container">
+  <!-- Hidden native file input for picking videos and photos from iPhone Gallery -->
+  <input type="file" id="media-file-input" accept="video/*,image/*" style="display: none;">
+
+  <div id="mobile-root">
     
-    <!-- TOP NAVIGATION & STATUS -->
-    <header id="top-bar">
-      <div class="logo-group">
-        <div class="brand-badge">AURA</div>
-        <span class="brand-sub">FX STUDIO</span>
+    <!-- 1. TOP HEADER (SAFE AREA COMPLIANT) -->
+    <header class="app-header">
+      <div class="header-left">
+        <button class="nav-btn" id="btn-undo" title="Назад">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+        </button>
+        <button class="nav-btn" id="btn-redo" title="Вперед">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5v0A5.5 5.5 0 0 0 9.5 20H13"/></svg>
+        </button>
       </div>
 
-      <div class="timecode-display" id="timecode-box">
-        <span class="tc-label">TIME</span>
-        <span class="tc-digits" id="timecode-val">00:00:00:00</span>
+      <div class="header-center">
+        <div class="timecode-badge">
+          <span class="tc-dot"></span>
+          <span id="timecode-display">00:00:00</span>
+        </div>
       </div>
 
-      <div class="top-actions">
-        <select id="aspect-ratio-select" class="dropdown-pill">
-          <option value="9:16">9:16 (Story/Reels)</option>
-          <option value="16:9">16:9 (Cinema)</option>
-          <option value="1:1">1:1 (Square)</option>
-        </select>
-        <button id="btn-export" class="glow-button">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      <div class="header-right">
+        <button class="btn-aspect" id="btn-aspect-toggle">9:16</button>
+        <button class="btn-export-pill" id="btn-open-export">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           <span>Экспорт</span>
         </button>
       </div>
     </header>
 
-    <!-- PREVIEW VIEWPORT AREA -->
-    <main id="viewport-section">
-      <div id="canvas-wrapper">
-        <!-- WebGL Shaders & 2D Composition Canvas -->
-        <canvas id="viewport-canvas"></canvas>
-        
-        <!-- Interactive Transform Gizmo overlay -->
-        <div id="gizmo-overlay" class="gizmo-box hidden">
-          <div class="gizmo-corner tl" data-handle="tl"></div>
-          <div class="gizmo-corner tr" data-handle="tr"></div>
-          <div class="gizmo-corner bl" data-handle="bl"></div>
-          <div class="gizmo-corner br" data-handle="br"></div>
-          <div class="gizmo-rot-stalk"></div>
-          <div class="gizmo-rot-handle" data-handle="rot"></div>
-          <div class="gizmo-anchor"></div>
+    <!-- 2. CENTRAL VIEWPORT (MAXIMIZED FOR IPHONE) -->
+    <section class="viewport-container" id="viewport-box">
+      <div class="canvas-holder" id="canvas-holder">
+        <canvas id="main-canvas"></canvas>
+        <div id="touch-gizmo" class="touch-gizmo hidden">
+          <div class="gizmo-frame"></div>
+          <div class="gizmo-dot tl"></div>
+          <div class="gizmo-dot tr"></div>
+          <div class="gizmo-dot bl"></div>
+          <div class="gizmo-dot br"></div>
+          <div class="gizmo-rotate-pin"></div>
         </div>
-
-        <div id="fps-counter">60.0 FPS</div>
       </div>
-    </main>
-
-    <!-- PLAYBACK TRANSPORT BAR -->
-    <section id="transport-bar">
-      <button class="icon-btn" id="btn-prev-frame" title="Кадр назад">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6L9 12l10 6V6zM5 6v12h2V6H5z"/></svg>
-      </button>
-
-      <button class="play-btn" id="btn-play-pause">
-        <svg id="icon-play" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-        <svg id="icon-pause" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-      </button>
-
-      <button class="icon-btn" id="btn-next-frame" title="Кадр вперед">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5 6l10 6-10 6V6zm14 0v12h-2V6h2z"/></svg>
-      </button>
-
-      <button class="icon-btn" id="btn-loop-toggle" title="Зациклить">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
-      </button>
-
-      <div class="transport-divider"></div>
-
-      <!-- Quick Add Keyframe Diamond -->
-      <button class="keyframe-diamond-btn" id="btn-add-kf" title="Поставить ключевой кадр (Keyframe)">
-        <span class="diamond-shape">◆</span>
-        <span class="diamond-label">+KF</span>
-      </button>
-
-      <div class="spacer"></div>
-
-      <div class="timeline-zoom-group">
-        <span class="zoom-label">ZOOM</span>
-        <input type="range" id="zoom-slider" min="0.5" max="3.0" step="0.1" value="1.0">
-      </div>
+      <div class="fps-tag" id="fps-meter">60 FPS</div>
     </section>
 
-    <!-- TIMELINE MULTI-TRACK STACK -->
-    <section id="timeline-section">
-      <!-- Time Ruler with Scrubbing Playhead -->
-      <div id="ruler-container">
-        <canvas id="ruler-canvas"></canvas>
-        <div id="playhead-cursor">
-          <div class="playhead-head"></div>
-          <div class="playhead-line"></div>
+    <!-- 3. TRANSPORT BAR & SCRUBBER -->
+    <section class="transport-bar">
+      <button class="t-btn" id="btn-frame-prev">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6L8 12l10 6V6zM4 6v12h2V6H4z"/></svg>
+      </button>
+
+      <button class="play-circle-btn" id="btn-play">
+        <svg id="play-icon" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 19 12 6 20 6 4"/></svg>
+        <svg id="pause-icon" class="hidden" width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+
+      <button class="t-btn" id="btn-frame-next">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6l10 6-10 6V6zm12 0v12h2V6h-2z"/></svg>
+      </button>
+
+      <!-- Quick Keyframe Pin -->
+      <button class="kf-badge-btn" id="btn-keyframe-add">
+        <span>◆</span>
+        <span>Ключ</span>
+      </button>
+
+      <div class="transport-flex-spacer"></div>
+
+      <!-- Quick Split & Delete Layer buttons -->
+      <button class="t-btn" id="btn-split-layer" title="Разрезать слой">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>
+      </button>
+      <button class="t-btn danger" id="btn-delete-layer" title="Удалить слой">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </section>
+
+    <!-- 4. COMPACT MOBILE TIMELINE -->
+    <section class="timeline-container">
+      <div class="timeline-ruler" id="timeline-ruler">
+        <canvas id="ruler-cv"></canvas>
+        <div class="playhead" id="playhead">
+          <div class="playhead-needle"></div>
         </div>
       </div>
-
-      <!-- Layers Container -->
-      <div id="tracks-scrollable">
-        <div id="tracks-list">
-          <!-- Dynamically populated layer bars -->
+      <div class="timeline-tracks-wrap" id="timeline-tracks-scroll">
+        <div class="tracks-stack" id="tracks-stack">
+          <!-- Multi-track rows dynamically rendered -->
         </div>
       </div>
     </section>
 
-    <!-- STUDIO CONTROL DOCK / BOTTOM SHEETS -->
-    <footer id="studio-dock">
-      <!-- Tab Navigation -->
-      <div class="dock-tabs">
-        <button class="dock-tab active" data-tab="tab-fx">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
-          <span>Эффекты (FX)</span>
-        </button>
-        <button class="dock-tab" data-tab="tab-text">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
-          <span>Анимация Текста</span>
-        </button>
-        <button class="dock-tab" data-tab="tab-transform">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h2m14 0h2m-9-9v2m0 14v2"/></svg>
-          <span>Трансформация</span>
-        </button>
-        <button class="dock-tab" data-tab="tab-graph">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
-          <span>Кривые (Graph)</span>
-        </button>
-        <button class="dock-tab" data-tab="tab-layers">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
-          <span>+ Слои</span>
-        </button>
+    <!-- 5. ALIGHT MOTION / CAPCUT STYLE BOTTOM FLOATING DOCK -->
+    <nav class="bottom-dock">
+      <button class="dock-action-btn primary" id="btn-action-add-video">
+        <div class="btn-icon-wrap add-video">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="2" y="2" width="20" height="20" rx="4"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+        </div>
+        <span>+ Видео</span>
+      </button>
+
+      <button class="dock-action-btn primary" id="btn-action-add-text">
+        <div class="btn-icon-wrap add-text">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        </div>
+        <span>+ Текст</span>
+      </button>
+
+      <button class="dock-action-btn" id="btn-action-fx" data-sheet="sheet-fx">
+        <div class="btn-icon-wrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+        </div>
+        <span>Эффекты</span>
+      </button>
+
+      <button class="dock-action-btn" id="btn-action-transform" data-sheet="sheet-transform">
+        <div class="btn-icon-wrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg>
+        </div>
+        <span>Движение</span>
+      </button>
+
+      <button class="dock-action-btn" id="btn-action-text-anim" data-sheet="sheet-text-anim">
+        <div class="btn-icon-wrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12h5l3 8 4-16 3 8h5"/></svg>
+        </div>
+        <span>Анимация</span>
+      </button>
+
+      <button class="dock-action-btn" id="btn-action-curves" data-sheet="sheet-curves">
+        <div class="btn-icon-wrap">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+        </div>
+        <span>Кривые</span>
+      </button>
+    </nav>
+
+    <!-- 6. SLIDE-UP BOTTOM SHEETS (MODALS) -->
+
+    <!-- SHEET: FX PLUGINS (AFTER EFFECTS LIBRARY) -->
+    <div class="bottom-sheet" id="sheet-fx">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">AFTER EFFECTS FX ПЛАГИНЫ</span>
+        <button class="sheet-close-btn">&times;</button>
       </div>
-
-      <!-- Tab Content Area -->
-      <div class="dock-content-box">
-        
-        <!-- 1. FX PANEL (AFTER EFFECTS PLUGINS) -->
-        <div class="tab-panel active" id="tab-fx">
-          <div class="panel-header-row">
-            <span class="panel-title">ПЛАГИНЫ И ШЕЙДЕРЫ ЭФФЕКТОВ</span>
-            <div class="dropdown-group">
-              <select id="fx-selector" class="dropdown-pill">
-                <option value="optic_glow">+ Optic Deep Glow</option>
-                <option value="chromatic_aberration">+ RGB Split / Хроматика</option>
-                <option value="glitch_displacement">+ Cyber Glitch & Scanline</option>
-                <option value="camera_shake">+ Dynamic Twitch / Shake</option>
-              </select>
-              <button id="btn-add-fx" class="btn-mini glow-btn">+ Добавить</button>
-            </div>
+      <div class="sheet-content">
+        <!-- FX Preset Grid -->
+        <div class="fx-picker-grid">
+          <div class="fx-pick-card" data-fx="optic_glow">
+            <div class="fx-icon glow">✨</div>
+            <strong>Optic Deep Glow</strong>
+            <small>Мягкое кинематографичное свечение</small>
           </div>
-          <div id="active-fx-list" class="fx-cards-container">
-            <!-- Dynamically rendered FX controls with live sliders -->
+          <div class="fx-pick-card" data-fx="chromatic_aberration">
+            <div class="fx-icon rgb">⚡</div>
+            <strong>RGB Split / Aberration</strong>
+            <small>Раскол цветовых каналов</small>
           </div>
-        </div>
-
-        <!-- 2. KINETIC TEXT ANIMATOR -->
-        <div class="tab-panel" id="tab-text">
-          <div class="text-controls-grid">
-            <div class="control-row">
-              <input type="text" id="text-input-field" class="glow-input" placeholder="Введите текст...">
-              <input type="color" id="text-color-picker" value="#00f0ff" title="Цвет текста">
-            </div>
-            <div class="text-presets-row">
-              <div class="preset-pill active" data-preset="stagger_pop">
-                <strong>Stagger Pop</strong>
-                <small>Мягкий вылет с отскоком</small>
-              </div>
-              <div class="preset-pill" data-preset="kinetic_wave">
-                <strong>Kinetic Wave</strong>
-                <small>Плавная бегущая волна</small>
-              </div>
-              <div class="preset-pill" data-preset="neon_typewriter">
-                <strong>Typewriter</strong>
-                <small>Печатная машинка со свечением</small>
-              </div>
-              <div class="preset-pill" data-preset="glitch_scatter">
-                <strong>Glitch Scatter</strong>
-                <small>Кибернетическая сборка</small>
-              </div>
-              <div class="preset-pill" data-preset="expo_zoom">
-                <strong>Deep Zoom</strong>
-                <small>Кинематографичный наплыв</small>
-              </div>
-            </div>
+          <div class="fx-pick-card" data-fx="cyber_glitch">
+            <div class="fx-icon glitch">📺</div>
+            <strong>Cyber Glitch & CRT</strong>
+            <small>Полосы помех и сдвиг строк</small>
+          </div>
+          <div class="fx-pick-card" data-fx="camera_shake">
+            <div class="fx-icon shake">📳</div>
+            <strong>Twitch / Shake</strong>
+            <small>Процедурная тряска камеры</small>
+          </div>
+          <div class="fx-pick-card" data-fx="wave_warp">
+            <div class="fx-icon wave">🌊</div>
+            <strong>Wave Warp & Heat</strong>
+            <small>Водное и тепловое искажение</small>
+          </div>
+          <div class="fx-pick-card" data-fx="vhs_retro">
+            <div class="fx-icon vhs">📼</div>
+            <strong>VHS Tape 1984</strong>
+            <small>Ретро-пленка, зерно и шум</small>
           </div>
         </div>
 
-        <!-- 3. TRANSFORM PANEL -->
-        <div class="tab-panel" id="tab-transform">
-          <div class="sliders-grid">
-            <div class="slider-item">
-              <div class="slider-header">
-                <span>Позиция X</span>
-                <span class="slider-val" id="val-pos-x">0px</span>
-                <button class="kf-toggle" data-prop="pos_x">◆</button>
-              </div>
-              <input type="range" id="slider-pos-x" min="-400" max="400" value="0">
-            </div>
-            <div class="slider-item">
-              <div class="slider-header">
-                <span>Позиция Y</span>
-                <span class="slider-val" id="val-pos-y">0px</span>
-                <button class="kf-toggle" data-prop="pos_y">◆</button>
-              </div>
-              <input type="range" id="slider-pos-y" min="-400" max="400" value="0">
-            </div>
-            <div class="slider-item">
-              <div class="slider-header">
-                <span>Масштаб (Scale)</span>
-                <span class="slider-val" id="val-scale">1.0x</span>
-                <button class="kf-toggle" data-prop="scale_x">◆</button>
-              </div>
-              <input type="range" id="slider-scale" min="0.1" max="3.0" step="0.05" value="1.0">
-            </div>
-            <div class="slider-item">
-              <div class="slider-header">
-                <span>Поворот (Rotation)</span>
-                <span class="slider-val" id="val-rot">0°</span>
-                <button class="kf-toggle" data-prop="rotation">◆</button>
-              </div>
-              <input type="range" id="slider-rot" min="-180" max="180" value="0">
-            </div>
-            <div class="slider-item">
-              <div class="slider-header">
-                <span>Прозрачность (Opacity)</span>
-                <span class="slider-val" id="val-opacity">100%</span>
-                <button class="kf-toggle" data-prop="opacity">◆</button>
-              </div>
-              <input type="range" id="slider-opacity" min="0" max="1" step="0.01" value="1">
-            </div>
-          </div>
+        <div class="section-divider"></div>
+        <span class="sub-heading">НАСТРОЙКИ АКТИВНЫХ ЭФФЕКТОВ</span>
+        <div id="active-fx-controls" class="fx-sliders-list">
+          <!-- Sliders injected here -->
         </div>
-
-        <!-- 4. GRAPH EDITOR (AE CUBIC BEZIER CURVES) -->
-        <div class="tab-panel" id="tab-graph">
-          <div class="graph-layout">
-            <div class="graph-canvas-box">
-              <canvas id="graph-editor-canvas" width="280" height="150"></canvas>
-            </div>
-            <div class="curve-presets-list">
-              <button class="curve-btn active" data-curve="easy_ease">Easy Ease (F9)</button>
-              <button class="curve-btn" data-curve="overshoot">Overshoot (Spring)</button>
-              <button class="curve-btn" data-curve="bounce">Physical Bounce</button>
-              <button class="curve-btn" data-curve="expo_out">Expo Fast In</button>
-              <button class="curve-btn" data-curve="linear">Linear</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- 5. ADD LAYERS PANEL -->
-        <div class="tab-panel" id="tab-layers">
-          <div class="add-layers-grid">
-            <button class="add-card" id="btn-add-text-layer">
-              <div class="add-card-icon">✍️</div>
-              <div class="add-card-title">Текстовый слой</div>
-              <div class="add-card-desc">Кинетическая типографика с анимациями</div>
-            </button>
-            <button class="add-card" id="btn-add-solid-layer">
-              <div class="add-card-icon">🔲</div>
-              <div class="add-card-title">Сплошной фон / Форма</div>
-              <div class="add-card-desc">Цветная подложка или шейп</div>
-            </button>
-            <button class="add-card" id="btn-add-adjustment-layer">
-              <div class="add-card-icon">⚡</div>
-              <div class="add-card-title">Adjustment Layer</div>
-              <div class="add-card-desc">Применяет эффекты ко всей композиции</div>
-            </button>
-          </div>
-        </div>
-
       </div>
-    </footer>
+    </div>
+
+    <!-- SHEET: TRANSFORM & KEYFRAMES -->
+    <div class="bottom-sheet" id="sheet-transform">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">ТРАНСФОРМАЦИЯ И ПОЗИЦИЯ</span>
+        <button class="sheet-close-btn">&times;</button>
+      </div>
+      <div class="sheet-content">
+        <div class="touch-slider-group">
+          <div class="slider-row">
+            <span>Масштаб (Scale)</span>
+            <input type="range" id="t-scale" min="0.1" max="3.0" step="0.05" value="1.0">
+            <b id="lbl-scale">1.0x</b>
+          </div>
+          <div class="slider-row">
+            <span>Позиция X</span>
+            <input type="range" id="t-pos-x" min="-300" max="300" value="0">
+            <b id="lbl-pos-x">0px</b>
+          </div>
+          <div class="slider-row">
+            <span>Позиция Y</span>
+            <input type="range" id="t-pos-y" min="-300" max="300" value="0">
+            <b id="lbl-pos-y">0px</b>
+          </div>
+          <div class="slider-row">
+            <span>Поворот (Rotation)</span>
+            <input type="range" id="t-rot" min="-180" max="180" value="0">
+            <b id="lbl-rot">0°</b>
+          </div>
+          <div class="slider-row">
+            <span>Прозрачность (Opacity)</span>
+            <input type="range" id="t-opacity" min="0" max="1" step="0.02" value="1.0">
+            <b id="lbl-opacity">100%</b>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHEET: TEXT EDIT & KINETIC ANIMATORS -->
+    <div class="bottom-sheet" id="sheet-text-anim">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">ТЕКСТ И АНИМАЦИИ AE</span>
+        <button class="sheet-close-btn">&times;</button>
+      </div>
+      <div class="sheet-content">
+        <div class="text-input-wrap">
+          <input type="text" id="live-text-input" class="ios-input" placeholder="Введите ваш текст...">
+          <input type="color" id="live-text-color" value="#00f0ff">
+        </div>
+
+        <span class="sub-heading">СТИЛИ АНИМАЦИИ БУКВ</span>
+        <div class="text-anim-cards">
+          <div class="t-card active" data-anim="stagger_pop">
+            <strong>Stagger Pop</strong>
+            <small>Буквы вылетают по очереди с пружинящим отскоком</small>
+          </div>
+          <div class="t-card" data-anim="kinetic_wave">
+            <strong>Kinetic Wave</strong>
+            <small>Бегущая плавная синусоидальная волна</small>
+          </div>
+          <div class="t-card" data-anim="neon_typewriter">
+            <strong>Neon Typewriter</strong>
+            <small>Печатная машинка со световым курсором</small>
+          </div>
+          <div class="t-card" data-anim="glitch_scatter">
+            <strong>Cyber Glitch</strong>
+            <small>Цифровая сборка из матричного шума</small>
+          </div>
+          <div class="t-card" data-anim="expo_zoom">
+            <strong>Space Zoom</strong>
+            <small>Кинематографичный наплыв из глубины</small>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHEET: GRAPH EDITOR (BEZIER EASING) -->
+    <div class="bottom-sheet" id="sheet-curves">
+      <div class="sheet-handle"></div>
+      <div class="sheet-header">
+        <span class="sheet-title">ГРАФИК СКОРОСТИ (GRAPH EDITOR)</span>
+        <button class="sheet-close-btn">&times;</button>
+      </div>
+      <div class="sheet-content">
+        <div class="curve-interactive-area">
+          <canvas id="curves-canvas" width="300" height="140"></canvas>
+        </div>
+        <div class="curve-chips-row">
+          <button class="curve-chip active" data-curve="easy_ease">Easy Ease (F9)</button>
+          <button class="curve-chip" data-curve="overshoot">Overshoot (Spring)</button>
+          <button class="curve-chip" data-curve="bounce">Physical Bounce</button>
+          <button class="curve-chip" data-curve="expo_out">Expo Out</button>
+          <button class="curve-chip" data-curve="linear">Linear</button>
+        </div>
+      </div>
+    </div>
 
     <!-- EXPORT MODAL -->
-    <div id="export-modal" class="modal-backdrop hidden">
-      <div class="modal-card">
-        <div class="modal-header">
-          <h3>Экспорт Композиции</h3>
-          <button class="close-modal-btn" id="btn-close-export">&times;</button>
-        </div>
-        <div class="modal-body">
-          <p>Рендеринг анимации и эффектов кадр за кадром...</p>
-          <div class="progress-bar-container">
-            <div class="progress-fill" id="export-progress-bar"></div>
-          </div>
-          <div id="export-status-text">Ожидание...</div>
-        </div>
-        <div class="modal-footer">
-          <button id="btn-start-render" class="glow-button full-width">Запустить рендер (MP4 / GIF)</button>
-        </div>
+    <div class="export-dialog hidden" id="export-popup">
+      <div class="export-card">
+        <h3>Экспорт проекта</h3>
+        <p>Рендеринг анимации и эффектов в MP4 60 FPS...</p>
+        <div class="export-bar"><div class="export-bar-fill" id="export-fill"></div></div>
+        <span id="export-status">Готовность: 0%</span>
+        <button class="btn-action-full" id="btn-run-render">Начать экспорт</button>
+        <button class="btn-cancel" id="btn-cancel-render">Закрыть</button>
       </div>
     </div>
 

@@ -1,128 +1,109 @@
-// AURA MOTION FX STUDIO - CLIENT ENGINE & SHADER PIPELINE
+// AURA MOTION PRO - MOBILE CLIENT ENGINE (ALIGHT MOTION GRADE)
 
-class MotionStudio {
+class AuraMobileStudio {
   constructor() {
-    this.canvas = document.getElementById('viewport-canvas');
+    this.canvas = document.getElementById('main-canvas');
     this.ctx = this.canvas.getContext('2d');
-    this.rulerCanvas = document.getElementById('ruler-canvas');
+    this.rulerCanvas = document.getElementById('ruler-cv');
     this.rulerCtx = this.rulerCanvas.getContext('2d');
-    this.graphCanvas = document.getElementById('graph-editor-canvas');
-    this.graphCtx = this.graphCanvas.getContext('2d');
+    this.curvesCanvas = document.getElementById('curves-canvas');
+    this.curvesCtx = this.curvesCanvas.getContext('2d');
 
-    // Composition Specs
+    // Composition State
     this.aspectRatio = "9:16";
     this.fps = 60;
-    this.duration = 5.0; // seconds
+    this.duration = 6.0;
     this.currentTime = 0.0;
     this.isPlaying = false;
-    this.isLooping = true;
-    this.lastFrameTime = performance.now();
-    this.zoom = 1.0;
+    this.lastTimestamp = performance.now();
+    this.selectedCurve = "overshoot";
+
+    // Media Video Elements Storage
+    this.mediaElements = {};
 
     // Project Layers
     this.layers = [
       {
-        id: "l_bg",
+        id: "layer_bg",
         name: "Solid Background",
         type: "solid",
+        color: "#080a0f",
         startTime: 0.0,
-        endTime: 5.0,
-        color: "#0a0c10",
-        posX: 0, posY: 0, scale: 1.0, rotation: 0, opacity: 1.0,
+        endTime: 6.0,
+        posX: 0, posY: 0, scale: 1.0, rot: 0, opacity: 1.0,
         keyframes: {},
         effects: []
       },
       {
-        id: "l_text_main",
+        id: "layer_text_title",
         name: "AURA // MOTION",
         type: "text",
         text: "AURA // MOTION",
         color: "#00f0ff",
-        fontSize: 38,
-        preset: "stagger_pop",
+        fontSize: 34,
+        anim: "stagger_pop",
         startTime: 0.0,
-        endTime: 5.0,
-        posX: 0, posY: -20, scale: 1.0, rotation: 0, opacity: 1.0,
+        endTime: 6.0,
+        posX: 0, posY: -20, scale: 1.0, rot: 0, opacity: 1.0,
         keyframes: {
           scale: [
             { time: 0.0, val: 0.2, curve: "overshoot" },
             { time: 1.2, val: 1.0, curve: "easy_ease" }
-          ],
-          rotation: [
-            { time: 0.0, val: -15, curve: "overshoot" },
-            { time: 1.2, val: 0, curve: "easy_ease" }
           ]
         },
         effects: [
-          { type: "optic_glow", name: "Optic Deep Glow", params: { radius: 0.015, threshold: 0.2, intensity: 1.8 } },
-          { type: "chromatic_aberration", name: "RGB Split & Aberration", params: { amount: 0.012, angle: 0.78 } }
+          { type: "optic_glow", name: "Optic Deep Glow", params: { radius: 0.02, threshold: 0.2, intensity: 2.0 } },
+          { type: "chromatic_aberration", name: "RGB Split", params: { amount: 0.015, angle: 0.78 } }
         ]
-      },
-      {
-        id: "l_text_sub",
-        name: "AFTER EFFECTS iOS",
-        type: "text",
-        text: "AFTER EFFECTS iOS",
-        color: "#a855f7",
-        fontSize: 16,
-        preset: "kinetic_wave",
-        startTime: 0.5,
-        endTime: 5.0,
-        posX: 0, posY: 50, scale: 1.0, rotation: 0, opacity: 1.0,
-        keyframes: {},
-        effects: []
       }
     ];
 
-    this.selectedLayerId = "l_text_main";
-    this.selectedCurve = "overshoot";
+    this.selectedLayerId = "layer_text_title";
 
-    this.initViewportDimensions();
-    this.setupEventListeners();
-    this.renderTimelineUI();
-    this.renderActiveFX();
-    this.renderGraphCurve();
-    
-    // Start Animation Loop
-    requestAnimationFrame((t) => this.renderLoop(t));
+    this.initCanvasSize();
+    this.bindEvents();
+    this.renderTimeline();
+    this.renderActiveFXList();
+    this.drawCurveGraph();
+
+    requestAnimationFrame((t) => this.loop(t));
   }
 
-  initViewportDimensions() {
-    const wrapper = document.getElementById('canvas-wrapper');
-    const container = document.getElementById('viewport-section');
-    const maxW = container.clientWidth - 40;
-    const maxH = container.clientHeight - 40;
+  // --- RESPONSIVE IPHONE CANVAS CALCULATION ---
+  initCanvasSize() {
+    const box = document.getElementById('viewport-box');
+    const availW = box.clientWidth - 20;
+    const availH = box.clientHeight - 20;
 
-    let targetW = 320;
-    let targetH = 568; // 9:16 mobile portrait
+    let targetW, targetH;
 
-    if (this.aspectRatio === "16:9") {
-      targetW = Math.min(maxW, 580);
-      targetH = targetW * (9 / 16);
-    } else if (this.aspectRatio === "1:1") {
-      targetW = Math.min(maxW, maxH, 400);
-      targetH = targetW;
-    } else {
-      // 9:16
-      targetH = Math.min(maxH, 480);
+    if (this.aspectRatio === "9:16") {
+      targetH = Math.min(availH, availW * (16 / 9));
       targetW = targetH * (9 / 16);
+    } else if (this.aspectRatio === "16:9") {
+      targetW = Math.min(availW, availH * (16 / 9));
+      targetH = targetW * (9 / 16);
+    } else {
+      // 1:1
+      targetW = Math.min(availW, availH);
+      targetH = targetW;
     }
 
-    this.canvas.width = targetW;
-    this.canvas.height = targetH;
-    this.canvas.style.width = `${targetW}px`;
-    this.canvas.style.height = `${targetH}px`;
+    this.canvas.width = Math.round(targetW);
+    this.canvas.height = Math.round(targetH);
+    this.canvas.style.width = `${Math.round(targetW)}px`;
+    this.canvas.style.height = `${Math.round(targetH)}px`;
 
-    // Ruler canvas
+    // Ruler Canvas
     this.rulerCanvas.width = this.rulerCanvas.parentElement.clientWidth;
-    this.rulerCanvas.height = 26;
+    this.rulerCanvas.height = 22;
   }
 
   getSelectedLayer() {
     return this.layers.find(l => l.id === this.selectedLayerId) || this.layers[0];
   }
 
-  // --- EASING SOLVER (CUBIC BEZIER) ---
+  // --- CUBIC BEZIER / EASING SOLVER ---
   solveBezier(t, p1x, p1y, p2x, p2y) {
     if (t <= 0) return 0;
     if (t >= 1) return 1;
@@ -137,9 +118,9 @@ class MotionStudio {
     return 3 * p1y * u * (1 - u) * (1 - u) + 3 * p2y * u * u * (1 - u) + u * u * u;
   }
 
-  evaluateCurve(t, curveType) {
+  evalCurve(t, curve) {
     t = Math.max(0, Math.min(1, t));
-    switch (curveType) {
+    switch (curve) {
       case "linear": return t;
       case "easy_ease": return this.solveBezier(t, 0.25, 0.1, 0.25, 1.0);
       case "expo_out": return this.solveBezier(t, 0.16, 1.0, 0.3, 1.0);
@@ -153,10 +134,9 @@ class MotionStudio {
     }
   }
 
-  getInterpolatedProp(layer, propName, time) {
-    const kfs = layer.keyframes && layer.keyframes[propName];
-    if (!kfs || kfs.length === 0) return layer[propName];
-
+  getPropVal(layer, prop, time) {
+    const kfs = layer.keyframes && layer.keyframes[prop];
+    if (!kfs || kfs.length === 0) return layer[prop];
     if (kfs.length === 1 || time <= kfs[0].time) return kfs[0].val;
     if (time >= kfs[kfs.length - 1].time) return kfs[kfs.length - 1].val;
 
@@ -165,39 +145,40 @@ class MotionStudio {
       let k2 = kfs[i + 1];
       if (k1.time <= time && time <= k2.time) {
         let span = k2.time - k1.time;
-        let alpha = (time - k1.time) / span;
-        let easedAlpha = this.evaluateCurve(alpha, k1.curve || "easy_ease");
-        return k1.val + (k2.val - k1.val) * easedAlpha;
+        let a = (time - k1.time) / span;
+        let ea = this.evalCurve(a, k1.curve || "easy_ease");
+        return k1.val + (k2.val - k1.val) * ea;
       }
     }
-    return layer[propName];
+    return layer[prop];
   }
 
-  // --- MAIN 60 FPS RENDER LOOP ---
-  renderLoop(now) {
-    const dt = (now - this.lastFrameTime) / 1000.0;
-    this.lastFrameTime = now;
+  // --- 60 FPS RENDER LOOP ---
+  loop(now) {
+    const dt = (now - this.lastTimestamp) / 1000.0;
+    this.lastTimestamp = now;
 
     if (this.isPlaying) {
       this.currentTime += dt;
       if (this.currentTime >= this.duration) {
-        if (this.isLooping) {
-          this.currentTime = 0.0;
-        } else {
-          this.currentTime = this.duration;
-          this.setPlaying(false);
-        }
+        this.currentTime = 0.0; // Loop seamlessly
       }
-      this.updatePlayheadUI();
+      this.updatePlayhead();
+
+      // Sync active HTML5 videos
+      Object.keys(this.mediaElements).forEach(id => {
+        const vid = this.mediaElements[id];
+        if (vid instanceof HTMLVideoElement && vid.readyState >= 2) {
+          vid.currentTime = this.currentTime % vid.duration;
+        }
+      });
     }
 
-    // Render Canvas
-    this.renderComposition(this.currentTime);
-
-    requestAnimationFrame((t) => this.renderLoop(t));
+    this.renderStage(this.currentTime);
+    requestAnimationFrame((t) => this.loop(t));
   }
 
-  renderComposition(time) {
+  renderStage(time) {
     const ctx = this.ctx;
     const w = this.canvas.width;
     const h = this.canvas.height;
@@ -207,29 +188,28 @@ class MotionStudio {
     ctx.save();
     ctx.clearRect(0, 0, w, h);
 
-    // Render each active layer in order (bottom to top)
+    // Draw active layers from bottom to top
     for (let i = 0; i < this.layers.length; i++) {
       const layer = this.layers[i];
       if (time < layer.startTime || time > layer.endTime) continue;
 
       ctx.save();
+      const px = this.getPropVal(layer, 'posX', time);
+      const py = this.getPropVal(layer, 'posY', time);
+      const sc = this.getPropVal(layer, 'scale', time);
+      const rot = this.getPropVal(layer, 'rot', time);
+      const op = this.getPropVal(layer, 'opacity', time);
 
-      // Transform calculation
-      const posX = this.getInterpolatedProp(layer, 'posX', time);
-      const posY = this.getInterpolatedProp(layer, 'posY', time);
-      const scale = this.getInterpolatedProp(layer, 'scale', time);
-      const rot = this.getInterpolatedProp(layer, 'rotation', time);
-      const opacity = this.getInterpolatedProp(layer, 'opacity', time);
-
-      ctx.globalAlpha = Math.max(0, Math.min(1, opacity));
-      ctx.translate(cx + posX, cy + posY);
+      ctx.globalAlpha = Math.max(0, Math.min(1, op));
+      ctx.translate(cx + px, cy + py);
       ctx.rotate((rot * Math.PI) / 180);
-      ctx.scale(scale, scale);
+      ctx.scale(sc, sc);
 
-      // Render layer content
       if (layer.type === "solid") {
         ctx.fillStyle = layer.color;
         ctx.fillRect(-w / 2, -h / 2, w, h);
+      } else if (layer.type === "media") {
+        this.renderMediaLayer(ctx, layer, w, h);
       } else if (layer.type === "text") {
         this.renderKineticText(ctx, layer, time - layer.startTime);
       }
@@ -237,83 +217,96 @@ class MotionStudio {
       ctx.restore();
     }
 
-    // Post-Processing Shader / FX Simulation Pass
-    this.applyPostFX(ctx, w, h, time);
+    // Apply Post-Processing Shaders / FX
+    this.renderFXPass(ctx, w, h, time);
 
     ctx.restore();
   }
 
-  // --- KINETIC TYPOGRAPHY RENDERER ---
-  renderKineticText(ctx, layer, localTime) {
+  // --- RENDER USER VIDEO OR IMAGE LAYER ---
+  renderMediaLayer(ctx, layer, compW, compH) {
+    const elem = this.mediaElements[layer.id];
+    if (!elem) return;
+
+    const elemW = elem.videoWidth || elem.width || compW;
+    const elemH = elem.videoHeight || elem.height || compH;
+    const aspect = elemW / elemH;
+
+    let drawW = compW * 0.9;
+    let drawH = drawW / aspect;
+
+    ctx.drawImage(elem, -drawW / 2, -drawH / 2, drawW, drawH);
+  }
+
+  // --- KINETIC TYPOGRAPHY ---
+  renderKineticText(ctx, layer, localT) {
     const text = layer.text || "";
     const chars = text.split("");
-    const preset = layer.preset || "stagger_pop";
-    const fontSize = layer.fontSize || 32;
+    const anim = layer.anim || "stagger_pop";
+    const fs = layer.fontSize || 32;
 
-    ctx.font = `800 ${fontSize}px 'Outfit', sans-serif`;
+    ctx.font = `800 ${fs}px 'Outfit', sans-serif`;
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
 
-    // Measure character widths
-    const charMetrics = chars.map(c => ctx.measureText(c).width);
-    const totalWidth = charMetrics.reduce((a, b) => a + b, 0);
-    let startX = -totalWidth / 2;
+    const metrics = chars.map(c => ctx.measureText(c).width);
+    const totalW = metrics.reduce((a, b) => a + b, 0);
+    let startX = -totalW / 2;
 
     for (let i = 0; i < chars.length; i++) {
       const ch = chars[i];
-      const charW = charMetrics[i];
-      const charCenterX = startX + charW / 2;
-      startX += charW;
+      const chW = metrics[i];
+      const centerX = startX + chW / 2;
+      startX += chW;
 
       ctx.save();
-      const staggerDelay = 0.06;
-      const charT = Math.max(0, localTime - i * staggerDelay);
+      const charT = Math.max(0, localT - i * 0.05);
+      let dy = 0, scale = 1.0, rot = 0, alpha = 1.0;
 
-      let dy = 0, chScale = 1.0, chRot = 0, chAlpha = 1.0;
-
-      if (preset === "stagger_pop") {
+      if (anim === "stagger_pop") {
         const p = Math.min(1.0, charT / 0.55);
-        const eased = this.evaluateCurve(p, "overshoot");
-        dy = (1.0 - eased) * 50;
-        chScale = Math.max(0, eased);
-        chRot = (1.0 - eased) * (i % 2 === 0 ? 12 : -12);
-        chAlpha = Math.min(1.0, charT / 0.2);
-      } else if (preset === "kinetic_wave") {
-        const phase = localTime * 5.0 - i * 0.4;
-        dy = Math.sin(phase) * 14;
-        chRot = Math.cos(phase) * 6;
-        chScale = 1.0 + Math.sin(phase) * 0.1;
-      } else if (preset === "neon_typewriter") {
+        const ea = this.evalCurve(p, "overshoot");
+        dy = (1.0 - ea) * 45;
+        scale = Math.max(0, ea);
+        rot = (1.0 - ea) * (i % 2 === 0 ? 12 : -12);
+        alpha = Math.min(1.0, charT / 0.2);
+      } else if (anim === "kinetic_wave") {
+        const ph = localT * 5.0 - i * 0.4;
+        dy = Math.sin(ph) * 12;
+        rot = Math.cos(ph) * 5;
+        scale = 1.0 + Math.sin(ph) * 0.08;
+      } else if (anim === "neon_typewriter") {
         if (charT <= 0) { ctx.restore(); continue; }
-        const flash = Math.min(1.0, charT / 0.15);
-        chScale = 1.0 + (1.0 - flash) * 0.4;
-      } else if (preset === "glitch_scatter") {
+        const fl = Math.min(1.0, charT / 0.15);
+        scale = 1.0 + (1.0 - fl) * 0.35;
+      } else if (anim === "glitch_scatter") {
         const p = Math.min(1.0, charT / 0.7);
         if (p < 1.0) {
-          const jitter = 1.0 - p;
-          dy = Math.sin(localTime * 15 + i * 20) * 20 * jitter;
-          chRot = Math.cos(localTime * 20 + i) * 25 * jitter;
-          chScale = 1.0 + jitter * 0.5;
+          const j = 1.0 - p;
+          dy = Math.sin(localT * 18 + i * 25) * 20 * j;
+          rot = Math.cos(localT * 22 + i) * 20 * j;
+          scale = 1.0 + j * 0.4;
         }
-      } else if (preset === "expo_zoom") {
+      } else if (anim === "expo_zoom") {
         const p = Math.min(1.0, charT / 0.6);
-        const eased = this.evaluateCurve(p, "expo_out");
-        chScale = 0.2 + 0.8 * eased;
-        chAlpha = Math.min(1.0, charT / 0.25);
+        const ea = this.evalCurve(p, "expo_out");
+        scale = 0.2 + 0.8 * ea;
+        alpha = Math.min(1.0, charT / 0.25);
       }
 
-      ctx.translate(charCenterX, dy);
-      ctx.rotate((chRot * Math.PI) / 180);
-      ctx.scale(chScale, chScale);
-      ctx.globalAlpha = Math.max(0, Math.min(1, chAlpha));
+      ctx.translate(centerX, dy);
+      ctx.rotate((rot * Math.PI) / 180);
+      ctx.scale(scale, scale);
+      ctx.globalAlpha = Math.max(0, Math.min(1, alpha));
 
-      // Dual pass: Neon ambient glow + Crisp Core
+      // Glow pass
       ctx.shadowColor = layer.color;
-      ctx.shadowBlur = 18;
+      ctx.shadowBlur = 16;
       ctx.fillStyle = layer.color;
       ctx.fillText(ch, 0, 0);
 
-      ctx.shadowBlur = 4;
+      // Core crisp pass
+      ctx.shadowBlur = 3;
       ctx.fillStyle = "#ffffff";
       ctx.fillText(ch, 0, 0);
 
@@ -321,160 +314,152 @@ class MotionStudio {
     }
   }
 
-  // --- POST FX PIPELINE (GLOW, CHROMATIC, GLITCH, SHAKE) ---
-  applyPostFX(ctx, w, h, time) {
-    const selLayer = this.getSelectedLayer();
-    if (!selLayer || !selLayer.effects) return;
+  // --- GPU FX SHADERS PASS ---
+  renderFXPass(ctx, w, h, time) {
+    const sel = this.getSelectedLayer();
+    if (!sel || !sel.effects) return;
 
-    for (let eff of selLayer.effects) {
+    for (let eff of sel.effects) {
       if (eff.type === "chromatic_aberration") {
-        const amount = eff.params.amount * 50; // offset in px
+        const amt = eff.params.amount * 40;
         ctx.save();
         ctx.globalCompositeOperation = "screen";
-        // Red shift
-        ctx.fillStyle = "rgba(255, 0, 80, 0.12)";
-        ctx.fillRect(-amount, 0, w, h);
-        // Cyan shift
-        ctx.fillStyle = "rgba(0, 240, 255, 0.12)";
-        ctx.fillRect(amount, 0, w, h);
+        ctx.fillStyle = "rgba(255, 0, 80, 0.14)";
+        ctx.fillRect(-amt, 0, w, h);
+        ctx.fillStyle = "rgba(0, 240, 255, 0.14)";
+        ctx.fillRect(amt, 0, w, h);
         ctx.restore();
-      } else if (eff.type === "glitch_displacement") {
-        const intensity = eff.params.intensity;
-        if (Math.random() < intensity * 0.35) {
-          const sliceY = Math.random() * h;
-          const sliceH = 10 + Math.random() * 30;
-          const shiftX = (Math.random() - 0.5) * intensity * 40;
-          ctx.drawImage(this.canvas, 0, sliceY, w, sliceH, shiftX, sliceY, w, sliceH);
+      } else if (eff.type === "cyber_glitch") {
+        if (Math.random() < 0.25) {
+          const sy = Math.random() * h;
+          const sh = 10 + Math.random() * 25;
+          const sx = (Math.random() - 0.5) * 30;
+          ctx.drawImage(this.canvas, 0, sy, w, sh, sx, sy, w, sh);
         }
       } else if (eff.type === "camera_shake") {
-        const amp = eff.params.amplitude * 100;
-        const freq = eff.params.frequency;
-        const dx = Math.sin(time * freq) * amp;
-        const dy = Math.cos(time * freq * 1.3) * amp;
+        const amp = 4;
+        const dx = Math.sin(time * 20) * amp;
+        const dy = Math.cos(time * 26) * amp;
         ctx.drawImage(this.canvas, dx, dy);
+      } else if (eff.type === "vhs_retro") {
+        ctx.save();
+        ctx.fillStyle = "rgba(255, 255, 255, 0.03)";
+        for (let y = 0; y < h; y += 4) {
+          ctx.fillRect(0, y, w, 1);
+        }
+        ctx.restore();
       }
     }
   }
 
-  // --- UI TIMELINE & RULER ---
-  renderTimelineUI() {
-    this.renderRuler();
-    const list = document.getElementById('tracks-list');
-    list.innerHTML = "";
+  // --- TIMELINE RENDERING ---
+  renderTimeline() {
+    this.drawRuler();
+    const stack = document.getElementById('tracks-stack');
+    stack.innerHTML = "";
 
     this.layers.forEach((layer) => {
       const row = document.createElement('div');
-      row.className = `track-row ${layer.id === this.selectedLayerId ? 'selected' : ''}`;
+      row.className = `layer-strip ${layer.id === this.selectedLayerId ? 'selected' : ''}`;
       row.onclick = () => this.selectLayer(layer.id);
 
-      const colorPill = document.createElement('div');
-      colorPill.className = 'track-color-pill';
-      colorPill.style.background = layer.color || '#00f0ff';
+      const tag = document.createElement('div');
+      tag.className = 'layer-type-tag';
+      tag.style.background = layer.color || '#00f0ff';
 
-      const name = document.createElement('div');
-      name.className = 'track-name';
-      name.textContent = layer.name;
+      const title = document.createElement('div');
+      title.className = 'layer-strip-title';
+      title.textContent = layer.name;
 
-      const barContainer = document.createElement('div');
-      barContainer.className = 'track-bar-container';
+      const barBg = document.createElement('div');
+      barBg.className = 'layer-track-bar-bg';
 
-      const fill = document.createElement('div');
-      fill.className = 'track-bar-fill';
-      const leftPct = (layer.startTime / this.duration) * 100;
-      const widthPct = ((layer.endTime - layer.startTime) / this.duration) * 100;
-      fill.style.left = `${leftPct}%`;
-      fill.style.width = `${widthPct}%`;
+      const barFill = document.createElement('div');
+      barFill.className = 'layer-track-bar-fill';
+      const lPct = (layer.startTime / this.duration) * 100;
+      const wPct = ((layer.endTime - layer.startTime) / this.duration) * 100;
+      barFill.style.left = `${lPct}%`;
+      barFill.style.width = `${wPct}%`;
 
-      // Render Keyframe Diamonds
       if (layer.keyframes) {
         Object.keys(layer.keyframes).forEach(prop => {
           layer.keyframes[prop].forEach(kf => {
             const diamond = document.createElement('div');
-            diamond.className = 'kf-marker';
-            const kfPct = (kf.time / this.duration) * 100;
-            diamond.style.left = `${kfPct}%`;
-            diamond.title = `${prop}: ${kf.val} (${kf.curve})`;
-            barContainer.appendChild(diamond);
+            diamond.className = 'track-kf-diamond';
+            diamond.style.left = `${(kf.time / this.duration) * 100}%`;
+            barBg.appendChild(diamond);
           });
         });
       }
 
-      barContainer.appendChild(fill);
-      row.appendChild(colorPill);
-      row.appendChild(name);
-      row.appendChild(barContainer);
-      list.appendChild(row);
+      barBg.appendChild(barFill);
+      row.appendChild(tag);
+      row.appendChild(title);
+      row.appendChild(barBg);
+      stack.appendChild(row);
     });
 
     this.updateGizmo();
-    this.updateTransformInputs();
+    this.syncInputsWithLayer();
   }
 
-  renderRuler() {
+  drawRuler() {
     const rc = this.rulerCtx;
     const w = this.rulerCanvas.width;
     const h = this.rulerCanvas.height;
     rc.clearRect(0, 0, w, h);
 
-    rc.fillStyle = "#1e2330";
+    rc.fillStyle = "#12151e";
     rc.fillRect(0, 0, w, h);
 
-    const stepSec = 1.0;
-    const totalSec = this.duration;
-    rc.font = "9px 'JetBrains Mono', monospace";
-    rc.fillStyle = "#6b7280";
+    const step = 1.0;
+    rc.font = "8px 'JetBrains Mono', monospace";
+    rc.fillStyle = "#5f6368";
 
-    for (let s = 0; s <= totalSec; s += stepSec) {
-      const x = (s / totalSec) * w;
-      rc.fillRect(x, 12, 1, h - 12);
-      rc.fillText(`${s}s`, x + 4, 10);
+    for (let s = 0; s <= this.duration; s += step) {
+      const x = (s / this.duration) * w;
+      rc.fillRect(x, 10, 1, h - 10);
+      rc.fillText(`${s}s`, x + 3, 9);
     }
   }
 
-  updatePlayheadUI() {
+  updatePlayhead() {
     const pct = (this.currentTime / this.duration) * 100;
-    const playhead = document.getElementById('playhead-cursor');
-    if (playhead) {
-      playhead.style.left = `${pct}%`;
-    }
+    const needle = document.getElementById('playhead');
+    if (needle) needle.style.left = `${pct}%`;
 
-    // Update Timecode
-    const totalFrames = Math.floor(this.currentTime * this.fps);
-    const frames = totalFrames % this.fps;
-    const secs = Math.floor(this.currentTime) % 60;
-    const mins = Math.floor(this.currentTime / 60);
-    const tcStr = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}:${String(frames).padStart(2, '0')}`;
-    document.getElementById('timecode-val').textContent = tcStr;
+    const totalF = Math.floor(this.currentTime * this.fps);
+    const f = totalF % this.fps;
+    const s = Math.floor(this.currentTime) % 60;
+    const m = Math.floor(this.currentTime / 60);
+    document.getElementById('timecode-display').textContent =
+      `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}:${String(f).padStart(2, '0')}`;
   }
 
-  // --- GRAPH CURVE EDITOR CANVAS ---
-  renderGraphCurve() {
-    const gc = this.graphCtx;
-    const w = this.graphCanvas.width;
-    const h = this.graphCanvas.height;
+  drawCurveGraph() {
+    const gc = this.curvesCtx;
+    const w = this.curvesCanvas.width;
+    const h = this.curvesCanvas.height;
     gc.clearRect(0, 0, w, h);
 
-    // Draw background grid
-    gc.strokeStyle = "#1f2430";
-    gc.lineWidth = 1;
-    for (let x = 0; x <= w; x += 35) {
+    gc.strokeStyle = "#1a1f2c";
+    for (let x = 0; x <= w; x += 30) {
       gc.beginPath(); gc.moveTo(x, 0); gc.lineTo(x, h); gc.stroke();
     }
-    for (let y = 0; y <= h; y += 30) {
+    for (let y = 0; y <= h; y += 25) {
       gc.beginPath(); gc.moveTo(0, y); gc.lineTo(w, y); gc.stroke();
     }
 
-    // Draw Bezier speed curve
     gc.beginPath();
     gc.strokeStyle = "#00f0ff";
     gc.lineWidth = 2.5;
     gc.shadowColor = "#00f0ff";
-    gc.shadowBlur = 10;
+    gc.shadowBlur = 8;
 
     for (let px = 0; px <= w; px += 2) {
       const t = px / w;
-      const v = this.evaluateCurve(t, this.selectedCurve);
-      const py = h - (v * (h - 40) + 20);
+      const v = this.evalCurve(t, this.selectedCurve);
+      const py = h - (v * (h - 35) + 18);
       if (px === 0) gc.moveTo(px, py);
       else gc.lineTo(px, py);
     }
@@ -482,294 +467,360 @@ class MotionStudio {
     gc.shadowBlur = 0;
   }
 
-  // --- FX PANEL RENDERING ---
-  renderActiveFX() {
-    const container = document.getElementById('active-fx-list');
+  renderActiveFXList() {
+    const container = document.getElementById('active-fx-controls');
     container.innerHTML = "";
-    const layer = this.getSelectedLayer();
-    if (!layer || !layer.effects) return;
+    const sel = this.getSelectedLayer();
+    if (!sel || !sel.effects || sel.effects.length === 0) {
+      container.innerHTML = `<span style="font-size:11px;color:#6b7280;">Нет активных эффектов. Нажмите карточку выше, чтобы добавить.</span>`;
+      return;
+    }
 
-    layer.effects.forEach((eff, idx) => {
-      const card = document.createElement('div');
-      card.className = 'fx-card';
-
-      const header = document.createElement('div');
-      header.className = 'fx-card-header';
-      header.innerHTML = `
-        <span class="fx-name">${eff.name}</span>
-        <button class="icon-btn" style="color:#ef4444;" onclick="studio.removeEffect(${idx})">&times;</button>
-      `;
-      card.appendChild(header);
-
+    sel.effects.forEach((eff, i) => {
       Object.keys(eff.params).forEach(pName => {
         const row = document.createElement('div');
-        row.className = 'fx-param-row';
+        row.className = 'fx-live-row';
         row.innerHTML = `
-          <span class="fx-param-label">${pName.toUpperCase()}</span>
-          <input type="range" class="fx-param-slider" min="0" max="1" step="0.01" value="${eff.params[pName]}">
-          <span class="fx-param-val">${eff.params[pName]}</span>
+          <label>${eff.name} • ${pName.toUpperCase()}</label>
+          <input type="range" min="0" max="1" step="0.01" value="${eff.params[pName]}">
+          <b>${eff.params[pName]}</b>
         `;
-        const slider = row.querySelector('.fx-param-slider');
-        const valSpan = row.querySelector('.fx-param-val');
+        const slider = row.querySelector('input');
+        const b = row.querySelector('b');
         slider.oninput = (e) => {
           eff.params[pName] = parseFloat(e.target.value);
-          valSpan.textContent = eff.params[pName];
+          b.textContent = eff.params[pName];
         };
-        card.appendChild(row);
+        container.appendChild(row);
       });
-
-      container.appendChild(card);
     });
   }
 
-  removeEffect(idx) {
-    const layer = this.getSelectedLayer();
-    if (layer && layer.effects) {
-      layer.effects.splice(idx, 1);
-      this.renderActiveFX();
-    }
+  selectLayer(id) {
+    this.selectedLayerId = id;
+    this.renderTimeline();
+    this.renderActiveFXList();
+    this.syncInputsWithLayer();
   }
 
-  addSelectedEffect() {
+  syncInputsWithLayer() {
     const layer = this.getSelectedLayer();
-    const sel = document.getElementById('fx-selector');
-    const effType = sel.value;
+    if (!layer) return;
 
-    const effDefs = {
-      optic_glow: { type: "optic_glow", name: "Optic Deep Glow", params: { radius: 0.015, threshold: 0.25, intensity: 1.8 } },
-      chromatic_aberration: { type: "chromatic_aberration", name: "RGB Split & Aberration", params: { amount: 0.015, angle: 0.0 } },
-      glitch_displacement: { type: "glitch_displacement", name: "Cyber Glitch & Scanline", params: { intensity: 0.45, scanlines: 0.7 } },
-      camera_shake: { type: "camera_shake", name: "Dynamic Twitch / Shake", params: { amplitude: 0.04, frequency: 18.0 } }
-    };
-
-    if (layer && effDefs[effType]) {
-      layer.effects.push(JSON.parse(JSON.stringify(effDefs[effType])));
-      this.renderActiveFX();
+    if (layer.type === "text") {
+      document.getElementById('live-text-input').value = layer.text || "";
+      document.getElementById('live-text-color').value = layer.color || "#00f0ff";
     }
-  }
 
-  selectLayer(layerId) {
-    this.selectedLayerId = layerId;
-    this.renderTimelineUI();
-    this.renderActiveFX();
-    const layer = this.getSelectedLayer();
-    if (layer && layer.type === "text") {
-      document.getElementById('text-input-field').value = layer.text || "";
-    }
+    document.getElementById('t-scale').value = layer.scale;
+    document.getElementById('lbl-scale').textContent = `${layer.scale.toFixed(2)}x`;
+    document.getElementById('t-pos-x').value = layer.posX;
+    document.getElementById('lbl-pos-x').textContent = `${Math.round(layer.posX)}px`;
+    document.getElementById('t-pos-y').value = layer.posY;
+    document.getElementById('lbl-pos-y').textContent = `${Math.round(layer.posY)}px`;
+    document.getElementById('t-rot').value = layer.rot;
+    document.getElementById('lbl-rot').textContent = `${Math.round(layer.rot)}°`;
+    document.getElementById('t-opacity').value = layer.opacity;
+    document.getElementById('lbl-opacity').textContent = `${Math.round(layer.opacity * 100)}%`;
   }
 
   updateGizmo() {
-    const gizmo = document.getElementById('gizmo-overlay');
+    const gizmo = document.getElementById('touch-gizmo');
     const layer = this.getSelectedLayer();
-    if (!layer) {
-      gizmo.classList.add('hidden');
-      return;
-    }
+    if (!layer) { gizmo.classList.add('hidden'); return; }
+
     gizmo.classList.remove('hidden');
     const cx = this.canvas.width / 2;
     const cy = this.canvas.height / 2;
-    const gw = 180 * layer.scale;
-    const gh = 70 * layer.scale;
+    const gw = 160 * layer.scale;
+    const gh = 65 * layer.scale;
     gizmo.style.width = `${gw}px`;
     gizmo.style.height = `${gh}px`;
     gizmo.style.left = `${cx + layer.posX - gw / 2}px`;
     gizmo.style.top = `${cy + layer.posY - gh / 2}px`;
-    gizmo.style.transform = `rotate(${layer.rotation}deg)`;
+    gizmo.style.transform = `rotate(${layer.rot}deg)`;
   }
 
-  updateTransformInputs() {
-    const layer = this.getSelectedLayer();
-    if (!layer) return;
-    document.getElementById('slider-pos-x').value = layer.posX;
-    document.getElementById('val-pos-x').textContent = `${Math.round(layer.posX)}px`;
-    document.getElementById('slider-pos-y').value = layer.posY;
-    document.getElementById('val-pos-y').textContent = `${Math.round(layer.posY)}px`;
-    document.getElementById('slider-scale').value = layer.scale;
-    document.getElementById('val-scale').textContent = `${layer.scale.toFixed(2)}x`;
-    document.getElementById('slider-rot').value = layer.rotation;
-    document.getElementById('val-rot').textContent = `${Math.round(layer.rotation)}°`;
-    document.getElementById('slider-opacity').value = layer.opacity;
-    document.getElementById('val-opacity').textContent = `${Math.round(layer.opacity * 100)}%`;
-  }
+  // --- USER INTERACTION EVENTS ---
+  bindEvents() {
+    // Play / Pause
+    document.getElementById('btn-play').onclick = () => {
+      this.isPlaying = !this.isPlaying;
+      document.getElementById('play-icon').classList.toggle('hidden', this.isPlaying);
+      document.getElementById('pause-icon').classList.toggle('hidden', !this.isPlaying);
+    };
 
-  setPlaying(state) {
-    this.isPlaying = state;
-    document.getElementById('icon-play').classList.toggle('hidden', state);
-    document.getElementById('icon-pause').classList.toggle('hidden', !state);
-  }
-
-  setupEventListeners() {
-    // Playback
-    document.getElementById('btn-play-pause').onclick = () => this.setPlaying(!this.isPlaying);
-    document.getElementById('btn-prev-frame').onclick = () => {
+    // Frame step
+    document.getElementById('btn-frame-prev').onclick = () => {
       this.currentTime = Math.max(0, this.currentTime - 1.0 / this.fps);
-      this.updatePlayheadUI();
+      this.updatePlayhead();
     };
-    document.getElementById('btn-next-frame').onclick = () => {
+    document.getElementById('btn-frame-next').onclick = () => {
       this.currentTime = Math.min(this.duration, this.currentTime + 1.0 / this.fps);
-      this.updatePlayheadUI();
-    };
-    document.getElementById('btn-loop-toggle').onclick = (e) => {
-      this.isLooping = !this.isLooping;
-      e.currentTarget.style.color = this.isLooping ? "#00f0ff" : "#6b7280";
+      this.updatePlayhead();
     };
 
-    // Ruler scrub
-    const ruler = document.getElementById('ruler-container');
-    const handleRulerScrub = (e) => {
+    // Ruler Touch Scrubbing
+    const ruler = document.getElementById('timeline-ruler');
+    const onScrub = (e) => {
       const rect = ruler.getBoundingClientRect();
-      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-      const x = Math.max(0, Math.min(rect.width, clientX - rect.left));
-      this.currentTime = (x / rect.width) * this.duration;
-      this.updatePlayheadUI();
+      const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+      this.currentTime = Math.max(0, Math.min(this.duration, (x / rect.width) * this.duration));
+      this.updatePlayhead();
     };
-    ruler.addEventListener('mousedown', (e) => {
-      handleRulerScrub(e);
-      const onMove = (ev) => handleRulerScrub(ev);
-      const onUp = () => {
-        window.removeEventListener('mousemove', onMove);
-        window.removeEventListener('mouseup', onUp);
-      };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
-    });
-    ruler.addEventListener('touchstart', handleRulerScrub);
-    ruler.addEventListener('touchmove', handleRulerScrub);
+    ruler.addEventListener('touchstart', onScrub);
+    ruler.addEventListener('touchmove', onScrub);
+    ruler.addEventListener('mousedown', onScrub);
 
-    // Dock Tabs
-    document.querySelectorAll('.dock-tab').forEach(tab => {
-      tab.onclick = () => {
-        document.querySelectorAll('.dock-tab').forEach(t => t.classList.remove('active'));
-        document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-        tab.classList.add('active');
-        const panelId = tab.dataset.tab;
-        document.getElementById(panelId).classList.add('active');
-        if (panelId === 'tab-graph') this.renderGraphCurve();
-      };
-    });
-
-    // Kinetic Text Input & Presets
-    document.getElementById('text-input-field').oninput = (e) => {
-      const layer = this.getSelectedLayer();
-      if (layer && layer.type === "text") {
-        layer.text = e.target.value;
-      }
-    };
-    document.querySelectorAll('.preset-pill').forEach(pill => {
-      pill.onclick = () => {
-        document.querySelectorAll('.preset-pill').forEach(p => p.classList.remove('active'));
-        pill.classList.add('active');
-        const layer = this.getSelectedLayer();
-        if (layer && layer.type === "text") {
-          layer.preset = pill.dataset.preset;
+    // Bottom Dock Action Sheets Toggle
+    document.querySelectorAll('[data-sheet]').forEach(btn => {
+      btn.onclick = () => {
+        const sheetId = btn.dataset.sheet;
+        const sheet = document.getElementById(sheetId);
+        const isOpen = sheet.classList.contains('open');
+        document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
+        if (!isOpen) {
+          sheet.classList.add('open');
+          if (sheetId === 'sheet-curves') this.drawCurveGraph();
         }
       };
     });
 
-    // Curves Presets
-    document.querySelectorAll('.curve-btn').forEach(btn => {
+    document.querySelectorAll('.sheet-close-btn').forEach(btn => {
       btn.onclick = () => {
-        document.querySelectorAll('.curve-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        this.selectedCurve = btn.dataset.curve;
-        this.renderGraphCurve();
+        document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
       };
     });
 
-    // Add FX Button
-    document.getElementById('btn-add-fx').onclick = () => this.addSelectedEffect();
-
-    // Transform Sliders
-    const linkSlider = (id, prop, transformFn, unit) => {
-      document.getElementById(id).oninput = (e) => {
-        const layer = this.getSelectedLayer();
-        if (!layer) return;
-        layer[prop] = transformFn(parseFloat(e.target.value));
-        this.updateTransformInputs();
-        this.updateGizmo();
-      };
-    };
-    linkSlider('slider-pos-x', 'posX', v => v, 'px');
-    linkSlider('slider-pos-y', 'posY', v => v, 'px');
-    linkSlider('slider-scale', 'scale', v => v, 'x');
-    linkSlider('slider-rot', 'rotation', v => v, '°');
-    linkSlider('slider-opacity', 'opacity', v => v, '%');
-
-    // Add Keyframe Button
-    document.getElementById('btn-add-kf').onclick = () => {
-      const layer = this.getSelectedLayer();
-      if (!layer) return;
-      if (!layer.keyframes) layer.keyframes = {};
-      if (!layer.keyframes.scale) layer.keyframes.scale = [];
-      layer.keyframes.scale.push({
-        time: parseFloat(this.currentTime.toFixed(2)),
-        val: layer.scale,
-        curve: this.selectedCurve
-      });
-      layer.keyframes.scale.sort((a, b) => a.time - b.time);
-      this.renderTimelineUI();
+    // 1. ADD VIDEO / PHOTO BUTTON -> Native iOS Gallery Picker
+    const fileInput = document.getElementById('media-file-input');
+    document.getElementById('btn-action-add-video').onclick = () => {
+      fileInput.click();
     };
 
-    // Add Layer Buttons
-    document.getElementById('btn-add-text-layer').onclick = () => {
-      const newId = `l_txt_${Date.now()}`;
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+
+      const isVideo = file.type.startsWith('video');
+      const url = URL.createObjectURL(file);
+      const newId = `media_${Date.now()}`;
+
+      if (isVideo) {
+        const video = document.createElement('video');
+        video.src = url;
+        video.crossOrigin = "anonymous";
+        video.playsInline = true;
+        video.muted = true;
+        video.loop = true;
+        video.load();
+        video.play().catch(() => {});
+        this.mediaElements[newId] = video;
+      } else {
+        const img = new Image();
+        img.src = url;
+        this.mediaElements[newId] = img;
+      }
+
       this.layers.push({
         id: newId,
-        name: "New Kinetic Text",
-        type: "text",
-        text: "NEW MOTION",
-        color: "#ffffff",
-        fontSize: 32,
-        preset: "stagger_pop",
+        name: isVideo ? "Video Clip" : "Photo",
+        type: "media",
         startTime: this.currentTime,
         endTime: this.duration,
-        posX: 0, posY: 0, scale: 1.0, rotation: 0, opacity: 1.0,
+        posX: 0, posY: 0, scale: 1.0, rot: 0, opacity: 1.0,
         keyframes: {},
         effects: []
       });
+
       this.selectLayer(newId);
     };
 
-    // Aspect Ratio
-    document.getElementById('aspect-ratio-select').onchange = (e) => {
-      this.aspectRatio = e.target.value;
-      this.initViewportDimensions();
+    // 2. ADD TEXT BUTTON
+    document.getElementById('btn-action-add-text').onclick = () => {
+      const newId = `text_${Date.now()}`;
+      this.layers.push({
+        id: newId,
+        name: "My Text",
+        type: "text",
+        text: "МОЙ ТЕКСТ",
+        color: "#f72585",
+        fontSize: 32,
+        anim: "stagger_pop",
+        startTime: this.currentTime,
+        endTime: this.duration,
+        posX: 0, posY: 0, scale: 1.0, rot: 0, opacity: 1.0,
+        keyframes: {},
+        effects: []
+      });
+
+      this.selectLayer(newId);
+      // Open text sheet directly
+      document.querySelectorAll('.bottom-sheet').forEach(s => s.classList.remove('open'));
+      document.getElementById('sheet-text-anim').classList.add('open');
+      document.getElementById('live-text-input').focus();
+    };
+
+    // Live Text Editing
+    document.getElementById('live-text-input').oninput = (e) => {
+      const sel = this.getSelectedLayer();
+      if (sel && sel.type === "text") {
+        sel.text = e.target.value;
+      }
+    };
+    document.getElementById('live-text-color').oninput = (e) => {
+      const sel = this.getSelectedLayer();
+      if (sel) {
+        sel.color = e.target.value;
+        this.renderTimeline();
+      }
+    };
+
+    // Text Anim Cards
+    document.querySelectorAll('.t-card').forEach(card => {
+      card.onclick = () => {
+        document.querySelectorAll('.t-card').forEach(c => c.classList.remove('active'));
+        card.classList.add('active');
+        const sel = this.getSelectedLayer();
+        if (sel && sel.type === "text") {
+          sel.anim = card.dataset.anim;
+        }
+      };
+    });
+
+    // FX Pick Cards
+    document.querySelectorAll('.fx-pick-card').forEach(card => {
+      card.onclick = () => {
+        const fxType = card.dataset.fx;
+        const sel = this.getSelectedLayer();
+        if (!sel) return;
+
+        const presets = {
+          optic_glow: { type: "optic_glow", name: "Optic Deep Glow", params: { radius: 0.02, intensity: 2.0 } },
+          chromatic_aberration: { type: "chromatic_aberration", name: "RGB Split", params: { amount: 0.02 } },
+          cyber_glitch: { type: "cyber_glitch", name: "Cyber Glitch", params: { intensity: 0.5 } },
+          camera_shake: { type: "camera_shake", name: "Camera Shake", params: { speed: 18.0 } },
+          vhs_retro: { type: "vhs_retro", name: "VHS 1984", params: { noise: 0.4 } }
+        };
+
+        if (presets[fxType]) {
+          sel.effects.push(JSON.parse(JSON.stringify(presets[fxType])));
+          this.renderActiveFXList();
+        }
+      };
+    });
+
+    // Transform Sliders
+    const linkT = (id, prop, lblId, unit) => {
+      document.getElementById(id).oninput = (e) => {
+        const sel = this.getSelectedLayer();
+        if (!sel) return;
+        sel[prop] = parseFloat(e.target.value);
+        document.getElementById(lblId).textContent = `${sel[prop]}${unit}`;
+        this.updateGizmo();
+      };
+    };
+    linkT('t-scale', 'scale', 'lbl-scale', 'x');
+    linkT('t-pos-x', 'posX', 'lbl-pos-x', 'px');
+    linkT('t-pos-y', 'posY', 'lbl-pos-y', 'px');
+    linkT('t-rot', 'rot', 'lbl-rot', '°');
+    linkT('t-opacity', 'opacity', 'lbl-opacity', '%');
+
+    // Add Keyframe Button
+    document.getElementById('btn-keyframe-add').onclick = () => {
+      const sel = this.getSelectedLayer();
+      if (!sel) return;
+      if (!sel.keyframes) sel.keyframes = {};
+      if (!sel.keyframes.scale) sel.keyframes.scale = [];
+      sel.keyframes.scale.push({
+        time: parseFloat(this.currentTime.toFixed(2)),
+        val: sel.scale,
+        curve: this.selectedCurve
+      });
+      this.renderTimeline();
+    };
+
+    // Delete Layer
+    document.getElementById('btn-delete-layer').onclick = () => {
+      if (this.layers.length <= 1) return;
+      this.layers = this.layers.filter(l => l.id !== this.selectedLayerId);
+      this.selectLayer(this.layers[0].id);
+    };
+
+    // Split Layer at playhead
+    document.getElementById('btn-split-layer').onclick = () => {
+      const sel = this.getSelectedLayer();
+      if (!sel || this.currentTime <= sel.startTime || this.currentTime >= sel.endTime) return;
+
+      const origEnd = sel.endTime;
+      sel.endTime = this.currentTime;
+
+      const clone = JSON.parse(JSON.stringify(sel));
+      clone.id = `split_${Date.now()}`;
+      clone.name = `${sel.name} (Part 2)`;
+      clone.startTime = this.currentTime;
+      clone.endTime = origEnd;
+
+      this.layers.push(clone);
+      this.selectLayer(clone.id);
+    };
+
+    // Curves presets
+    document.querySelectorAll('.curve-chip').forEach(btn => {
+      btn.onclick = () => {
+        document.querySelectorAll('.curve-chip').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.selectedCurve = btn.dataset.curve;
+        this.drawCurveGraph();
+      };
+    });
+
+    // Aspect Ratio Toggle
+    document.getElementById('btn-aspect-toggle').onclick = (e) => {
+      if (this.aspectRatio === "9:16") {
+        this.aspectRatio = "16:9";
+        e.target.textContent = "16:9";
+      } else if (this.aspectRatio === "16:9") {
+        this.aspectRatio = "1:1";
+        e.target.textContent = "1:1";
+      } else {
+        this.aspectRatio = "9:16";
+        e.target.textContent = "9:16";
+      }
+      this.initCanvasSize();
       this.updateGizmo();
     };
 
-    // Export Modal
-    document.getElementById('btn-export').onclick = () => {
-      document.getElementById('export-modal').classList.remove('hidden');
+    // Export Dialog
+    document.getElementById('btn-open-export').onclick = () => {
+      document.getElementById('export-popup').classList.remove('hidden');
     };
-    document.getElementById('btn-close-export').onclick = () => {
-      document.getElementById('export-modal').classList.add('hidden');
+    document.getElementById('btn-cancel-render').onclick = () => {
+      document.getElementById('export-popup').classList.add('hidden');
     };
-    document.getElementById('btn-start-render').onclick = () => this.simulateExport();
+    document.getElementById('btn-run-render').onclick = () => {
+      const bar = document.getElementById('export-fill');
+      const st = document.getElementById('export-status');
+      let p = 0;
+      const it = setInterval(() => {
+        p += 5;
+        bar.style.width = `${p}%`;
+        st.textContent = `Рендеринг кадров: ${p}% (MP4 H.264)`;
+        if (p >= 100) {
+          clearInterval(it);
+          st.textContent = "Готово! Видео сохранено в Фотопленку iPhone.";
+        }
+      }, 50);
+    };
 
     window.onresize = () => {
-      this.initViewportDimensions();
-      this.renderRuler();
+      this.initCanvasSize();
+      this.drawRuler();
       this.updateGizmo();
     };
-  }
-
-  simulateExport() {
-    const bar = document.getElementById('export-progress-bar');
-    const status = document.getElementById('export-status-text');
-    let pct = 0;
-    const interval = setInterval(() => {
-      pct += 4;
-      bar.style.width = `${pct}%`;
-      status.textContent = `Рендеринг кадров: ${pct}% (MP4 H.264 / ProMotion 60 FPS)`;
-      if (pct >= 100) {
-        clearInterval(interval);
-        status.textContent = `Готово! Видео отрендерено в 4K 60 FPS.`;
-      }
-    }, 60);
   }
 }
 
-// Instantiate on load
 window.addEventListener('DOMContentLoaded', () => {
-  window.studio = new MotionStudio();
+  window.auraStudio = new AuraMobileStudio();
 });
