@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AURA // Motion FX Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app-container">
+    
+    <!-- TOP NAVIGATION & STATUS -->
+    <header id="top-bar">
+      <div class="logo-group">
+        <div class="brand-badge">AURA</div>
+        <span class="brand-sub">FX STUDIO</span>
+      </div>
+
+      <div class="timecode-display" id="timecode-box">
+        <span class="tc-label">TIME</span>
+        <span class="tc-digits" id="timecode-val">00:00:00:00</span>
+      </div>
+
+      <div class="top-actions">
+        <select id="aspect-ratio-select" class="dropdown-pill">
+          <option value="9:16">9:16 (Story/Reels)</option>
+          <option value="16:9">16:9 (Cinema)</option>
+          <option value="1:1">1:1 (Square)</option>
+        </select>
+        <button id="btn-export" class="glow-button">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span>Экспорт</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- PREVIEW VIEWPORT AREA -->
+    <main id="viewport-section">
+      <div id="canvas-wrapper">
+        <!-- WebGL Shaders & 2D Composition Canvas -->
+        <canvas id="viewport-canvas"></canvas>
+        
+        <!-- Interactive Transform Gizmo overlay -->
+        <div id="gizmo-overlay" class="gizmo-box hidden">
+          <div class="gizmo-corner tl" data-handle="tl"></div>
+          <div class="gizmo-corner tr" data-handle="tr"></div>
+          <div class="gizmo-corner bl" data-handle="bl"></div>
+          <div class="gizmo-corner br" data-handle="br"></div>
+          <div class="gizmo-rot-stalk"></div>
+          <div class="gizmo-rot-handle" data-handle="rot"></div>
+          <div class="gizmo-anchor"></div>
+        </div>
+
+        <div id="fps-counter">60.0 FPS</div>
+      </div>
+    </main>
+
+    <!-- PLAYBACK TRANSPORT BAR -->
+    <section id="transport-bar">
+      <button class="icon-btn" id="btn-prev-frame" title="Кадр назад">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M19 6L9 12l10 6V6zM5 6v12h2V6H5z"/></svg>
+      </button>
+
+      <button class="play-btn" id="btn-play-pause">
+        <svg id="icon-play" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+        <svg id="icon-pause" class="hidden" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+
+      <button class="icon-btn" id="btn-next-frame" title="Кадр вперед">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M5 6l10 6-10 6V6zm14 0v12h-2V6h2z"/></svg>
+      </button>
+
+      <button class="icon-btn" id="btn-loop-toggle" title="Зациклить">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+      </button>
+
+      <div class="transport-divider"></div>
+
+      <!-- Quick Add Keyframe Diamond -->
+      <button class="keyframe-diamond-btn" id="btn-add-kf" title="Поставить ключевой кадр (Keyframe)">
+        <span class="diamond-shape">◆</span>
+        <span class="diamond-label">+KF</span>
+      </button>
+
+      <div class="spacer"></div>
+
+      <div class="timeline-zoom-group">
+        <span class="zoom-label">ZOOM</span>
+        <input type="range" id="zoom-slider" min="0.5" max="3.0" step="0.1" value="1.0">
+      </div>
+    </section>
+
+    <!-- TIMELINE MULTI-TRACK STACK -->
+    <section id="timeline-section">
+      <!-- Time Ruler with Scrubbing Playhead -->
+      <div id="ruler-container">
+        <canvas id="ruler-canvas"></canvas>
+        <div id="playhead-cursor">
+          <div class="playhead-head"></div>
+          <div class="playhead-line"></div>
+        </div>
+      </div>
+
+      <!-- Layers Container -->
+      <div id="tracks-scrollable">
+        <div id="tracks-list">
+          <!-- Dynamically populated layer bars -->
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDIO CONTROL DOCK / BOTTOM SHEETS -->
+    <footer id="studio-dock">
+      <!-- Tab Navigation -->
+      <div class="dock-tabs">
+        <button class="dock-tab active" data-tab="tab-fx">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          <span>Эффекты (FX)</span>
+        </button>
+        <button class="dock-tab" data-tab="tab-text">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+          <span>Анимация Текста</span>
+        </button>
+        <button class="dock-tab" data-tab="tab-transform">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M3 12h2m14 0h2m-9-9v2m0 14v2"/></svg>
+          <span>Трансформация</span>
+        </button>
+        <button class="dock-tab" data-tab="tab-graph">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
+          <span>Кривые (Graph)</span>
+        </button>
+        <button class="dock-tab" data-tab="tab-layers">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+          <span>+ Слои</span>
+        </button>
+      </div>
+
+      <!-- Tab Content Area -->
+      <div class="dock-content-box">
+        
+        <!-- 1. FX PANEL (AFTER EFFECTS PLUGINS) -->
+        <div class="tab-panel active" id="tab-fx">
+          <div class="panel-header-row">
+            <span class="panel-title">ПЛАГИНЫ И ШЕЙДЕРЫ ЭФФЕКТОВ</span>
+            <div class="dropdown-group">
+              <select id="fx-selector" class="dropdown-pill">
+                <option value="optic_glow">+ Optic Deep Glow</option>
+                <option value="chromatic_aberration">+ RGB Split / Хроматика</option>
+                <option value="glitch_displacement">+ Cyber Glitch & Scanline</option>
+                <option value="camera_shake">+ Dynamic Twitch / Shake</option>
+              </select>
+              <button id="btn-add-fx" class="btn-mini glow-btn">+ Добавить</button>
+            </div>
+          </div>
+          <div id="active-fx-list" class="fx-cards-container">
+            <!-- Dynamically rendered FX controls with live sliders -->
+          </div>
+        </div>
+
+        <!-- 2. KINETIC TEXT ANIMATOR -->
+        <div class="tab-panel" id="tab-text">
+          <div class="text-controls-grid">
+            <div class="control-row">
+              <input type="text" id="text-input-field" class="glow-input" placeholder="Введите текст...">
+              <input type="color" id="text-color-picker" value="#00f0ff" title="Цвет текста">
+            </div>
+            <div class="text-presets-row">
+              <div class="preset-pill active" data-preset="stagger_pop">
+                <strong>Stagger Pop</strong>
+                <small>Мягкий вылет с отскоком</small>
+              </div>
+              <div class="preset-pill" data-preset="kinetic_wave">
+                <strong>Kinetic Wave</strong>
+                <small>Плавная бегущая волна</small>
+              </div>
+              <div class="preset-pill" data-preset="neon_typewriter">
+                <strong>Typewriter</strong>
+                <small>Печатная машинка со свечением</small>
+              </div>
+              <div class="preset-pill" data-preset="glitch_scatter">
+                <strong>Glitch Scatter</strong>
+                <small>Кибернетическая сборка</small>
+              </div>
+              <div class="preset-pill" data-preset="expo_zoom">
+                <strong>Deep Zoom</strong>
+                <small>Кинематографичный наплыв</small>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. TRANSFORM PANEL -->
+        <div class="tab-panel" id="tab-transform">
+          <div class="sliders-grid">
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>Позиция X</span>
+                <span class="slider-val" id="val-pos-x">0px</span>
+                <button class="kf-toggle" data-prop="pos_x">◆</button>
+              </div>
+              <input type="range" id="slider-pos-x" min="-400" max="400" value="0">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>Позиция Y</span>
+                <span class="slider-val" id="val-pos-y">0px</span>
+                <button class="kf-toggle" data-prop="pos_y">◆</button>
+              </div>
+              <input type="range" id="slider-pos-y" min="-400" max="400" value="0">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>Масштаб (Scale)</span>
+                <span class="slider-val" id="val-scale">1.0x</span>
+                <button class="kf-toggle" data-prop="scale_x">◆</button>
+              </div>
+              <input type="range" id="slider-scale" min="0.1" max="3.0" step="0.05" value="1.0">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>Поворот (Rotation)</span>
+                <span class="slider-val" id="val-rot">0°</span>
+                <button class="kf-toggle" data-prop="rotation">◆</button>
+              </div>
+              <input type="range" id="slider-rot" min="-180" max="180" value="0">
+            </div>
+            <div class="slider-item">
+              <div class="slider-header">
+                <span>Прозрачность (Opacity)</span>
+                <span class="slider-val" id="val-opacity">100%</span>
+                <button class="kf-toggle" data-prop="opacity">◆</button>
+              </div>
+              <input type="range" id="slider-opacity" min="0" max="1" step="0.01" value="1">
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. GRAPH EDITOR (AE CUBIC BEZIER CURVES) -->
+        <div class="tab-panel" id="tab-graph">
+          <div class="graph-layout">
+            <div class="graph-canvas-box">
+              <canvas id="graph-editor-canvas" width="280" height="150"></canvas>
+            </div>
+            <div class="curve-presets-list">
+              <button class="curve-btn active" data-curve="easy_ease">Easy Ease (F9)</button>
+              <button class="curve-btn" data-curve="overshoot">Overshoot (Spring)</button>
+              <button class="curve-btn" data-curve="bounce">Physical Bounce</button>
+              <button class="curve-btn" data-curve="expo_out">Expo Fast In</button>
+              <button class="curve-btn" data-curve="linear">Linear</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 5. ADD LAYERS PANEL -->
+        <div class="tab-panel" id="tab-layers">
+          <div class="add-layers-grid">
+            <button class="add-card" id="btn-add-text-layer">
+              <div class="add-card-icon">✍️</div>
+              <div class="add-card-title">Текстовый слой</div>
+              <div class="add-card-desc">Кинетическая типографика с анимациями</div>
+            </button>
+            <button class="add-card" id="btn-add-solid-layer">
+              <div class="add-card-icon">🔲</div>
+              <div class="add-card-title">Сплошной фон / Форма</div>
+              <div class="add-card-desc">Цветная подложка или шейп</div>
+            </button>
+            <button class="add-card" id="btn-add-adjustment-layer">
+              <div class="add-card-icon">⚡</div>
+              <div class="add-card-title">Adjustment Layer</div>
+              <div class="add-card-desc">Применяет эффекты ко всей композиции</div>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </footer>
+
+    <!-- EXPORT MODAL -->
+    <div id="export-modal" class="modal-backdrop hidden">
+      <div class="modal-card">
+        <div class="modal-header">
+          <h3>Экспорт Композиции</h3>
+          <button class="close-modal-btn" id="btn-close-export">&times;</button>
+        </div>
+        <div class="modal-body">
+          <p>Рендеринг анимации и эффектов кадр за кадром...</p>
+          <div class="progress-bar-container">
+            <div class="progress-fill" id="export-progress-bar"></div>
+          </div>
+          <div id="export-status-text">Ожидание...</div>
+        </div>
+        <div class="modal-footer">
+          <button id="btn-start-render" class="glow-button full-width">Запустить рендер (MP4 / GIF)</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

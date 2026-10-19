@@ -1,0 +1,60 @@
+name: Build Native iOS IPA (Xcode / Apple SDK)
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build-ios:
+    name: Compile Native ARM64 iOS App
+    runs-on: macos-14
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Compile Native Mach-O Executable via Apple SDK
+        run: |
+          echo "[*] Locating iPhoneOS SDK..."
+          SDK_PATH=$(xcrun --sdk iphoneos --show-sdk-path)
+          echo "[+] SDK Path: $SDK_PATH"
+
+          echo "[*] Compiling native ARM64 entrypoint..."
+          xcrun -sdk iphoneos clang -arch arm64 \
+            -isysroot "$SDK_PATH" \
+            -miphoneos-version-min=14.0 \
+            -fobjc-arc \
+            -framework UIKit \
+            -framework WebKit \
+            -framework Foundation \
+            ios/main.m -o AuraMotion
+
+          echo "[+] Compiled binary info:"
+          file AuraMotion
+
+      - name: Assemble IPA Bundle
+        run: |
+          echo "[*] Packaging Payload structure..."
+          mkdir -p Payload/AuraMotion.app/www
+          mv AuraMotion Payload/AuraMotion.app/
+          
+          # Generate Info.plist using the generator script
+          python3 ios/build_ipa.py || true
+          cp build/Payload/AuraMotion.app/Info.plist Payload/AuraMotion.app/Info.plist
+          
+          # Copy UI, Shaders, Kinetic Typography Engine
+          cp -r ui/static/* Payload/AuraMotion.app/www/
+          
+          echo "[*] Archiving to AuraMotion.ipa..."
+          rm -f AuraMotion.ipa
+          zip -9 -r AuraMotion.ipa Payload
+
+          echo "[+] Final IPA file:"
+          ls -lh AuraMotion.ipa
+
+      - name: Upload IPA Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AuraMotion-iOS-Ready
+          path: AuraMotion.ipa
+          retention-days: 14
